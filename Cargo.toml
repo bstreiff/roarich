@@ -1,0 +1,51 @@
+[package]
+name = "roarich"
+version = "0.1.0"
+authors = ["Brenda Streiff"]
+edition = "2021"
+include = ["**/*.rs", "Cargo.toml"]
+rust-version = "1.81"
+
+[package.metadata.docs.rs]
+all-features = true
+targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
+
+[dependencies]
+egui = "0.31"
+egui_extras = "0.31"
+eframe = { version = "0.31", default-features = false, features = [
+    "accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
+    "default_fonts", # Embed the default egui fonts.
+    "glow",          # Use the glow rendering backend. Alternative: "wgpu".
+    "persistence",   # Enable restoring app state when restarting the app.
+    "wayland",       # To support Linux (and CI)
+] }
+log = "0.4"
+
+# You only need serde if you want app persistence:
+serde = { version = "1", features = ["derive"] }
+
+libxivdat = { git = "https://github.com/bstreiff/libxivdat", rev = "a8ef9508764d038277afcc64798509ee17b4a6b6", features = ["gearset"] }
+#libxivdat = { path = "../libxivdat", features = ["gearset"] }
+
+# latest release is three years behind latest commits :(
+ironworks = { git = "https://github.com/ackwell/ironworks", rev = "404663c4298a2b6e666be3f32eb13c702d66c6cc", features = ["excel", "sqpack"] }
+egui_file = "0.22.0"
+serde_json = "1.0.138"
+
+
+# native:
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger = "0.11"
+
+# web:
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"
+web-sys = "0.3.70"           # to access the DOM (to hide the loading text)
+
+[profile.release]
+opt-level = 2 # fast and small wasm
+
+# Optimize all dependencies even in debug builds:
+[profile.dev.package."*"]
+opt-level = 2
