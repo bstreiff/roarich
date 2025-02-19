@@ -29,6 +29,19 @@ const CLASSJOB_NAMES: [&str; 43] = [
     "RPR", "SGE", "VPR", "PCT",
 ];
 
+fn base_param_name(param: i32) -> &'static str {
+    match param {
+        6 => "piety",
+        19 => "tenacity",
+        22 => "dhit",
+        27 => "crit",
+        44 => "determination",
+        45 => "skillspeed",
+        46 => "spellspeed",
+        _ => "",
+    }
+}
+
 //
 // {"name":"Machinist",
 //  "sets": [ {"name":"Default Set",
@@ -102,23 +115,35 @@ pub fn get_xivgear_json<T: DataProvider>(
         item_entry.insert("id".to_string(), Value::Number(item_id.into()));
 
         // We have to resolve materia (which is stored as class+grade) to the item id
-        // TODO: relic weapons?
         let mut materia_vec = Vec::with_capacity(5);
+        let mut relic_stats = Map::new();
 
-        for m in 0..4 {
+        for m in 0..eq.materia_types.len() {
             if eq.materia_types[m] != 0 {
                 let materia_info = data_provider
                     .get_materia(eq.materia_types[m] as u32)
                     .unwrap();
                 let materia_item_id = materia_info.item_id[eq.materia_grades[m] as usize];
 
-                let mut materia_entry = Map::new();
-                materia_entry.insert("id".to_string(), Value::Number(materia_item_id.into()));
+                if materia_item_id != 0 {
+                    // This is a normal materia
+                    let mut materia_entry = Map::new();
+                    materia_entry.insert("id".to_string(), Value::Number(materia_item_id.into()));
+                    materia_vec.push(Value::Object(materia_entry));
+                } else {
+                    // This is not a normal materia, it's a stat bonus on a relic weapon. xivgear
+                    // wants to have the stat bonuses, so look them up.
+                    let stat_type = base_param_name(materia_info.base_param_id);
+                    let stat_bonus = materia_info.base_param_value[eq.materia_grades[m] as usize];
 
-                materia_vec.push(Value::Object(materia_entry));
+                    relic_stats.insert(stat_type.to_string(), Value::Number(stat_bonus.into()));
+                }
             }
         }
         item_entry.insert("materia".to_string(), Value::Array(materia_vec));
+        if !relic_stats.is_empty() {
+            item_entry.insert("relicStats".to_string(), Value::Object(relic_stats));
+        }
 
         items_map.insert(
             XIVGEAR_ITEM_LABELS[i].to_string(),

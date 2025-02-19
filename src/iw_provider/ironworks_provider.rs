@@ -66,7 +66,7 @@ fn field_to_u16(field: Field) -> Result<u16, DataProviderError> {
 fn field_to_u32(field: Field) -> Result<u32, DataProviderError> {
     match field {
         Field::String(_) => Err(DataProviderError::FieldTypeMismatch(
-            "conversion of string to u16",
+            "conversion of string to u32",
         )),
         Field::Bool(x) => Ok(x as u32),
         Field::I8(x) => Ok(x as u32),
@@ -80,6 +80,43 @@ fn field_to_u32(field: Field) -> Result<u32, DataProviderError> {
         Field::F32(x) => Ok(x as u32),
     }
 }
+
+fn field_to_i16(field: Field) -> Result<i16, DataProviderError> {
+    match field {
+        Field::String(_) => Err(DataProviderError::FieldTypeMismatch(
+            "conversion of string to i16",
+        )),
+        Field::Bool(x) => Ok(x as i16),
+        Field::I8(x) => Ok(x as i16),
+        Field::I16(x) => Ok(x as i16),
+        Field::I32(x) => Ok(x as i16),
+        Field::I64(x) => Ok(x as i16),
+        Field::U8(x) => Ok(x as i16),
+        Field::U16(x) => Ok(x as i16),
+        Field::U32(x) => Ok(x as i16),
+        Field::U64(x) => Ok(x as i16),
+        Field::F32(x) => Ok(x as i16),
+    }
+}
+
+fn field_to_i32(field: Field) -> Result<i32, DataProviderError> {
+    match field {
+        Field::String(_) => Err(DataProviderError::FieldTypeMismatch(
+            "conversion of string to i32",
+        )),
+        Field::Bool(x) => Ok(x as i32),
+        Field::I8(x) => Ok(x as i32),
+        Field::I16(x) => Ok(x as i32),
+        Field::I32(x) => Ok(x as i32),
+        Field::I64(x) => Ok(x as i32),
+        Field::U8(x) => Ok(x as i32),
+        Field::U16(x) => Ok(x as i32),
+        Field::U32(x) => Ok(x as i32),
+        Field::U64(x) => Ok(x as i32),
+        Field::F32(x) => Ok(x as i32),
+    }
+}
+
 
 impl DataProvider for IronworksProvider {
     fn get_item(&self, item_id: u32) -> Result<Item, DataProviderError> {
@@ -118,13 +155,13 @@ impl DataProvider for IronworksProvider {
         let mut base_param_value_vec = Vec::with_capacity(16);
         for i in 0..16 {
             item_id_vec.push(field_to_u32(row.field(i)?)?);
-            base_param_value_vec.push(field_to_u32(row.field(i + 17)?)?);
+            base_param_value_vec.push(field_to_i16(row.field(i + 17)?)?);
         }
 
         Ok(Materia {
             id: id,
             item_id: item_id_vec,
-            base_param_id: 16,
+            base_param_id: field_to_i32(row.field(16)?)?,
             base_param_value: base_param_value_vec,
         })
     }
