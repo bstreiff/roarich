@@ -189,6 +189,7 @@ impl eframe::App for RoarichApp {
                     .striped(true)
                     .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
                     .column(Column::auto())
+                    .column(Column::exact(16.0))
                     .column(Column::remainder())
                     .column(Column::auto())
                     .column(Column::auto())
@@ -203,6 +204,16 @@ impl eframe::App for RoarichApp {
                                 body.row(18.0, |mut row| {
                                     row.col(|ui| {
                                         ui.label(format!("{}", gs.set_number));
+                                    });
+                                    row.col(|ui| {
+                                        const CLASS_JOB_BASE_ID: u32 = 62000;
+                                        if let Ok(img) =
+                                            self.data_provider.as_ref().unwrap().get_ui_image_by_id(
+                                                CLASS_JOB_BASE_ID + (gs.class_job as u32),
+                                            )
+                                        {
+                                            ui.add(egui::Image::new(img));
+                                        }
                                     });
                                     row.col(|ui| {
                                         ui.label(gs.name.clone());
@@ -234,6 +245,16 @@ impl eframe::App for RoarichApp {
             if let Some(gsc) = &self.gearset_config {
                 let index = self.selected_gearset as usize;
                 let gs = &gsc.gearsets[index];
+
+                const CLASS_JOB_FRAMED_BASE_ID: u32 = 62100;
+                if let Ok(img) = self
+                    .data_provider
+                    .as_ref()
+                    .unwrap()
+                    .get_ui_image_by_id(CLASS_JOB_FRAMED_BASE_ID + (gs.class_job as u32))
+                {
+                    ui.add(egui::Image::new(img).max_width(32.0));
+                }
 
                 ui.heading(gs.name.clone());
 

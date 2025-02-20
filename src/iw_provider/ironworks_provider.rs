@@ -2,8 +2,9 @@ use crate::data_provider::{DataProvider, DataProviderError};
 use crate::directories;
 use crate::model::{Item, Materia};
 
+use egui::mutex::Mutex;
 use egui::ImageSource;
-use image::DynamicImage;
+use image::{DynamicImage, ImageBuffer};
 use image_dds::Surface;
 use ironworks::{
     excel::{Excel, Field, Language},
@@ -11,11 +12,16 @@ use ironworks::{
     sqpack::{Install, SqPack},
     Ironworks,
 };
+use std::collections::HashMap;
 use std::io::Cursor;
 use std::sync::Arc;
 
+#[derive(Default)]
 pub struct IronworksProvider {
     ironworks: Arc<Ironworks>,
+
+    // TODO: should probably be separate, egui has a file loader concept
+    image_cache: Arc<Mutex<HashMap<String, Vec<u8>>>>,
 }
 
 impl IronworksProvider {
@@ -30,6 +36,8 @@ impl IronworksProvider {
 
         Self {
             ironworks: ironworks,
+
+            ..Default::default()
         }
     }
 }
@@ -145,6 +153,25 @@ fn read_dds(
     Ok(image.into())
 }
 
+fn read_bgra8(texture: tex::Texture) -> Result<DynamicImage, DataProviderError> {
+    // copied out of boilmaster
+    //
+    // it sure would be nice if the image crate suppored bgra
+
+    let mut data = texture.data().clone();
+
+    for i in 0..(data.len() / 4) {
+        let x = data[i * 4];
+        data[i * 4] = data[(i * 4) + 2];
+        data[(i * 4) + 2] = x;
+    }
+
+    let buffer =
+        ImageBuffer::from_raw(texture.width().into(), texture.height().into(), data).unwrap();
+
+    Ok(DynamicImage::ImageRgba8(buffer))
+}
+
 // ui/icon/051000/051474_hr1.tex
 fn ui_icon_path(id: u32) -> String {
     format!("ui/icon/{:0>6}/{:0>6}_hr1.tex", id - (id % 1000), id)
@@ -200,35 +227,51 @@ impl DataProvider for IronworksProvider {
     }
 
     fn get_image(&self, path: &str) -> Result<ImageSource<'_>, DataProviderError> {
-        let texture = self.ironworks.file::<tex::Texture>(path)?;
+        let mut cache = self.image_cache.lock();
+        if let Some(cache_entry) = cache.get(path).cloned() {
+            return Ok(ImageSource::Bytes {
+                uri: format!("bytes://{}.webp", path).into(),
+                bytes: cache_entry.into(),
+            });
+        } else {
+            let texture = self.ironworks.file::<tex::Texture>(path)?;
 
-        if !matches!(texture.kind(), tex::TextureKind::D2) {
-            return Err(DataProviderError::UnsupportedTextureType(
-                "texture load failure",
-            ));
-        }
-
-        let dynimage = match texture.format() {
-            tex::Format::Bc1Unorm => read_dds(texture, image_dds::ImageFormat::BC1RgbaUnorm)?,
-            tex::Format::Bc2Unorm => read_dds(texture, image_dds::ImageFormat::BC2RgbaUnorm)?,
-            tex::Format::Bc3Unorm => read_dds(texture, image_dds::ImageFormat::BC3RgbaUnorm)?,
-            tex::Format::Bc4Unorm => read_dds(texture, image_dds::ImageFormat::BC4RUnorm)?,
-            tex::Format::Bc5Unorm => read_dds(texture, image_dds::ImageFormat::BC5RgUnorm)?,
-            tex::Format::Bc6hFloat => read_dds(texture, image_dds::ImageFormat::BC6hRgbSfloat)?,
-            tex::Format::Bc7Unorm => read_dds(texture, image_dds::ImageFormat::BC7RgbaUnorm)?,
-            _ => {
+            if !matches!(texture.kind(), tex::TextureKind::D2) {
                 return Err(DataProviderError::UnsupportedTextureType(
-                    "unhandled texture format",
-                ))
+                    "texture load failure",
+                ));
             }
-        };
 
-        let mut bytes = Cursor::new(vec![]);
-        dynimage.write_to(&mut bytes, image::ImageFormat::WebP)?;
+            let dynimage = match texture.format() {
+                tex::Format::Bgra8Unorm => read_bgra8(texture)?,
+                tex::Format::Bc1Unorm => read_dds(texture, image_dds::ImageFormat::BC1RgbaUnorm)?,
+                tex::Format::Bc2Unorm => read_dds(texture, image_dds::ImageFormat::BC2RgbaUnorm)?,
+                tex::Format::Bc3Unorm => read_dds(texture, image_dds::ImageFormat::BC3RgbaUnorm)?,
+                tex::Format::Bc4Unorm => read_dds(texture, image_dds::ImageFormat::BC4RUnorm)?,
+                tex::Format::Bc5Unorm => read_dds(texture, image_dds::ImageFormat::BC5RgUnorm)?,
+                tex::Format::Bc6hFloat => read_dds(texture, image_dds::ImageFormat::BC6hRgbSfloat)?,
+                tex::Format::Bc7Unorm => read_dds(texture, image_dds::ImageFormat::BC7RgbaUnorm)?,
+                _ => {
+                    println!("{:?}", texture.format());
+                    return Err(DataProviderError::UnsupportedTextureType(
+                        "unhandled texture format",
+                    ));
+                }
+            };
 
-        Ok(ImageSource::Bytes {
-            uri: format!("bytes://{}", path).into(),
-            bytes: bytes.into_inner().into(),
-        })
+            let mut bytes = Cursor::new(vec![]);
+            dynimage.write_to(&mut bytes, image::ImageFormat::WebP)?;
+
+            cache.insert(path.to_owned(), bytes.clone().into_inner().into());
+
+            return Ok(ImageSource::Bytes {
+                uri: format!("bytes://{}.webp", path).into(),
+                bytes: bytes.into_inner().into(),
+            });
+        }
+    }
+
+    fn get_ui_image_by_id(&self, id: u32) -> Result<ImageSource<'_>, DataProviderError> {
+        self.get_image(&ui_icon_path(id))
     }
 }

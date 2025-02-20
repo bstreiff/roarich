@@ -98,4 +98,5 @@ pub trait DataProvider {
     fn get_materia(&self, id: u32) -> Result<Materia, DataProviderError>;
 
     fn get_image(&self, path: &str) -> Result<ImageSource<'_>, DataProviderError>;
+    fn get_ui_image_by_id(&self, id: u32) -> Result<ImageSource<'_>, DataProviderError>;
 }
