@@ -12,7 +12,7 @@ targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
 
 [dependencies]
 egui = "0.31"
-egui_extras = "0.31"
+egui_extras = { version = "0.31", features = ["image", "webp"] }
 eframe = { version = "0.31", default-features = false, features = [
     "accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
@@ -29,9 +29,11 @@ libxivdat = { git = "https://github.com/bstreiff/libxivdat", rev = "a8ef9508764d
 #libxivdat = { path = "../libxivdat", features = ["gearset"] }
 
 # latest release is three years behind latest commits :(
-ironworks = { git = "https://github.com/ackwell/ironworks", rev = "404663c4298a2b6e666be3f32eb13c702d66c6cc", features = ["excel", "sqpack"] }
+ironworks = { git = "https://github.com/ackwell/ironworks", rev = "404663c4298a2b6e666be3f32eb13c702d66c6cc", features = ["excel", "sqpack", "tex"] }
 egui_file = "0.22.0"
 serde_json = "1.0.138"
+image = { version = "0.25.5", features = ["webp"] }
+image_dds = "0.7.1"
 
 
 # native:

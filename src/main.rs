@@ -8,6 +8,8 @@ mod exporters;
 mod iw_provider;
 mod model;
 
+use egui_extras;
+
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
@@ -27,8 +29,10 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "roarich",
         native_options,
-        //        Box::new(|cc| Ok(Box::new(roarich::RoarichApp::new(cc)))),
-        Box::new(|cc| Ok(Box::new(app::RoarichApp::new(cc)))),
+        Box::new(|cc| {
+            egui_extras::install_image_loaders(&cc.egui_ctx);
+            Ok(Box::new(app::RoarichApp::new(cc)))
+        }),
     )
 }
 
@@ -58,8 +62,10 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                //                Box::new(|cc| Ok(Box::new(roarich::RoarichApp::new(cc)))),
-                Box::new(|cc| Ok(Box::new(app::RoarichApp::new(cc)))),
+                Box::new(|cc| {
+                    egui_extras::install_image_loaders(&cc.egui_ctx);
+                    Ok(Box::new(app::RoarichApp::new(cc)))
+                }),
             )
             .await;
 

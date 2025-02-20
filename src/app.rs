@@ -247,6 +247,7 @@ impl eframe::App for RoarichApp {
                     .striped(true)
                     .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
                     .column(Column::auto())
+                    .column(Column::auto())
                     .column(Column::remainder());
 
                 table.body(|mut body| {
@@ -263,9 +264,16 @@ impl eframe::App for RoarichApp {
                             .get_item(eq.item_id)
                             .unwrap();
 
-                        body.row(18.0, |mut row| {
+                        body.row(32.0, |mut row| {
                             row.col(|ui| {
                                 ui.label(format!("{}", EQUIPMENT_SLOT_NAMES[i]));
+                            });
+                            row.col(|ui| {
+                                if let Ok(img) =
+                                    self.data_provider.as_ref().unwrap().get_image(&item.icon)
+                                {
+                                    ui.add(egui::Image::new(img));
+                                }
                             });
                             row.col(|ui| {
                                 ui.label(format!("{}", item.name));

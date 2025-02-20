@@ -2,11 +2,16 @@ use crate::data_provider::{DataProvider, DataProviderError};
 use crate::directories;
 use crate::model::{Item, Materia};
 
+use egui::ImageSource;
+use image::DynamicImage;
+use image_dds::Surface;
 use ironworks::{
     excel::{Excel, Field, Language},
+    file::tex,
     sqpack::{Install, SqPack},
     Ironworks,
 };
+use std::io::Cursor;
 use std::sync::Arc;
 
 pub struct IronworksProvider {
@@ -117,6 +122,33 @@ fn field_to_i32(field: Field) -> Result<i32, DataProviderError> {
     }
 }
 
+fn read_dds(
+    texture: tex::Texture,
+    image_format: image_dds::ImageFormat,
+) -> Result<DynamicImage, DataProviderError> {
+    let surface = Surface {
+        width: texture.width().into(),
+        height: texture.height().into(),
+        depth: texture.depth().into(),
+        layers: match texture.kind() {
+            tex::TextureKind::Cube => 6,
+            tex::TextureKind::D2Array => texture.array_size().into(),
+            _other => 1,
+        },
+        mipmaps: texture.mip_levels().into(),
+        image_format,
+        data: texture.data(),
+    };
+
+    let image = surface.decode_rgba8()?.to_image(0)?;
+
+    Ok(image.into())
+}
+
+// ui/icon/051000/051474_hr1.tex
+fn ui_icon_path(id: u32) -> String {
+    format!("ui/icon/{:0>6}/{:0>6}_hr1.tex", id - (id % 1000), id)
+}
 
 impl DataProvider for IronworksProvider {
     fn get_item(&self, item_id: u32) -> Result<Item, DataProviderError> {
@@ -140,6 +172,7 @@ impl DataProvider for IronworksProvider {
         Ok(Item {
             id: item_id,
             name: field_to_string(row.field(9)?)?,
+            icon: ui_icon_path(field_to_u32(row.field(10)?)?),
 
             ..Default::default()
         })
@@ -163,6 +196,39 @@ impl DataProvider for IronworksProvider {
             item_id: item_id_vec,
             base_param_id: field_to_i32(row.field(16)?)?,
             base_param_value: base_param_value_vec,
+        })
+    }
+
+    fn get_image(&self, path: &str) -> Result<ImageSource<'_>, DataProviderError> {
+        let texture = self.ironworks.file::<tex::Texture>(path)?;
+
+        if !matches!(texture.kind(), tex::TextureKind::D2) {
+            return Err(DataProviderError::UnsupportedTextureType(
+                "texture load failure",
+            ));
+        }
+
+        let dynimage = match texture.format() {
+            tex::Format::Bc1Unorm => read_dds(texture, image_dds::ImageFormat::BC1RgbaUnorm)?,
+            tex::Format::Bc2Unorm => read_dds(texture, image_dds::ImageFormat::BC2RgbaUnorm)?,
+            tex::Format::Bc3Unorm => read_dds(texture, image_dds::ImageFormat::BC3RgbaUnorm)?,
+            tex::Format::Bc4Unorm => read_dds(texture, image_dds::ImageFormat::BC4RUnorm)?,
+            tex::Format::Bc5Unorm => read_dds(texture, image_dds::ImageFormat::BC5RgUnorm)?,
+            tex::Format::Bc6hFloat => read_dds(texture, image_dds::ImageFormat::BC6hRgbSfloat)?,
+            tex::Format::Bc7Unorm => read_dds(texture, image_dds::ImageFormat::BC7RgbaUnorm)?,
+            _ => {
+                return Err(DataProviderError::UnsupportedTextureType(
+                    "unhandled texture format",
+                ))
+            }
+        };
+
+        let mut bytes = Cursor::new(vec![]);
+        dynimage.write_to(&mut bytes, image::ImageFormat::WebP)?;
+
+        Ok(ImageSource::Bytes {
+            uri: format!("bytes://{}", path).into(),
+            bytes: bytes.into_inner().into(),
         })
     }
 }
