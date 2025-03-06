@@ -72,10 +72,13 @@ impl RoarichApp {
             None => Default::default(),
         };
 
+        let data_provider = IronworksProvider::new();
+        data_provider.install_bytes_loader(&cc.egui_ctx);
+
         Self {
             persisted_data: persisted,
             gearset_config: None,
-            data_provider: Some(IronworksProvider::new()),
+            data_provider: Some(data_provider),
             open_file_dialog: None,
             selected_gearset: -1,
             export_window_open: false,
